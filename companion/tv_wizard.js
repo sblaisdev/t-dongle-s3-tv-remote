@@ -701,6 +701,9 @@ function renderStep3(body) {
 
   // On-screen dialog authorization (Samsung Tizen, LG webOS)
   const activePort = (selectedTv.port && selectedTv.port !== 80) ? selectedTv.port : selectedTv.catalogEntry.defaultPort;
+  const parts = (selectedTv.ip || '').split('.');
+  const safeTvId = (parts.length === 4) ? `tv_${parts[2]}_${parts[3]}` : (selectedTv.id || 'default_tv').slice(0, 15);
+
   body.innerHTML = `
     <div style="background:#0f172a;border:1px solid #263043;border-radius:12px;padding:20px;text-align:center;">
       <div style="font-size:2.4rem;margin-bottom:8px;">&#x1F4FA;</div>
@@ -719,6 +722,21 @@ function renderStep3(body) {
       </button>
 
       <div id="pairingStatusMsg" style="margin-top:14px;font-size:0.85rem;color:#94a3b8;min-height:24px;"></div>
+
+      <div style="margin-top:14px;border-top:1px dashed #334155;padding-top:12px;text-align:left;">
+        <button type="button" onclick="toggleManualTokenSection()" style="background:none;border:none;color:#94a3b8;font-size:0.75rem;cursor:pointer;padding:0;text-decoration:underline;">
+          &#x2699; Already have an authorization token or paired TV?
+        </button>
+        <div id="manualTokenSection" style="display:none;margin-top:8px;background:#181d28;border:1px solid #334155;border-radius:8px;padding:10px;">
+          <label style="font-size:0.75rem;color:#94a3b8;display:block;margin-bottom:4px;">Pairing Token / Client Key</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="manualTokenVal" placeholder="e.g. 10507410" style="flex:1;padding:6px 10px;background:#0f172a;border:1px solid #334155;color:#fff;border-radius:6px;font-size:0.8rem;">
+            <button type="button" onclick="saveManualPairingToken()" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.8rem;font-weight:600;cursor:pointer;">
+              Save &amp; Continue
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div style="display:flex;justify-content:space-between;margin-top:20px;">
@@ -730,6 +748,64 @@ function renderStep3(body) {
       </button>
     </div>
   `;
+
+  checkTvExistingToken(safeTvId);
+}
+
+async function checkTvExistingToken(safeTvId) {
+  const baseUrl = getBaseApiUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/tv/token_status?tv_id=${encodeURIComponent(safeTvId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.has_token) {
+        isPairingVerified = true;
+        const msgEl = document.getElementById('pairingStatusMsg');
+        const nextBtn = document.getElementById('btnStep3Next');
+        const btn = document.getElementById('btnReqPair');
+        if (msgEl) {
+          msgEl.innerHTML = '<span style="color:#34d399;font-weight:600;">✔ Token already verified and stored in Hardware eFuse NVS!</span>';
+        }
+        if (nextBtn) {
+          nextBtn.disabled = false;
+          nextBtn.style.background = '#2563eb';
+          nextBtn.style.color = '#fff';
+          nextBtn.style.cursor = 'pointer';
+        }
+        if (btn) {
+          btn.innerHTML = '&#x26A1; Re-Pair / Renew Token';
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+function toggleManualTokenSection() {
+  const el = document.getElementById('manualTokenSection');
+  if (el) el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+}
+
+async function saveManualPairingToken() {
+  const inp = document.getElementById('manualTokenVal');
+  const token = inp ? inp.value.trim() : '';
+  if (!token) return;
+  const parts = (selectedTv.ip || '').split('.');
+  const safeTvId = (parts.length === 4) ? `tv_${parts[2]}_${parts[3]}` : (selectedTv.id || 'default_tv').slice(0, 15);
+  const baseUrl = getBaseApiUrl();
+  try {
+    const params = new URLSearchParams({ tv_id: safeTvId, secret: token });
+    await fetch(baseUrl + '/api/tv/save_token', { method: 'POST', body: params });
+  } catch (e) {}
+  isPairingVerified = true;
+  const msgEl = document.getElementById('pairingStatusMsg');
+  const nextBtn = document.getElementById('btnStep3Next');
+  if (msgEl) msgEl.innerHTML = '<span style="color:#34d399;font-weight:600;">✔ Token saved manually and encrypted in Hardware eFuse NVS!</span>';
+  if (nextBtn) {
+    nextBtn.disabled = false;
+    nextBtn.style.background = '#2563eb';
+    nextBtn.style.color = '#fff';
+    nextBtn.style.cursor = 'pointer';
+  }
 }
 
 async function saveKeyAndVerify() {

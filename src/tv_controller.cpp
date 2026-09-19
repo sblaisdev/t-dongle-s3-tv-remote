@@ -404,9 +404,9 @@ bool TvController::sendGenericWs(const String& url, const String& payload) {
     });
 
     if (cand.ssl) {
-      client.beginSSL(host.c_str(), cand.p, path.c_str());
+      client.beginSSL(host.c_str(), cand.p, path.c_str(), nullptr, "");
     } else {
-      client.begin(host.c_str(), cand.p, path.c_str());
+      client.begin(host.c_str(), cand.p, path.c_str(), "");
     }
 
     unsigned long start = millis();
@@ -531,9 +531,9 @@ String TvController::listenForWsToken(const String& url, const String& handshake
     });
 
     if (curSsl) {
-      client.beginSSL(host.c_str(), curPort, path.c_str());
+      client.beginSSL(host.c_str(), curPort, path.c_str(), nullptr, "");
     } else {
-      client.begin(host.c_str(), curPort, path.c_str());
+      client.begin(host.c_str(), curPort, path.c_str(), "");
     }
 
     unsigned long candStart = millis();
